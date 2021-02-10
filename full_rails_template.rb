@@ -1,4 +1,6 @@
 require 'byebug'
+require 'fileutils'
+
 def add_gems
   add_source 'https://rubygems.org' do
     gem 'httparty'
@@ -15,7 +17,7 @@ def add_gems
     end
 
     gem_group :test do
-      gem 'database_cleaner', '~> 1.7'
+      gem 'database_cleaner'
       gem 'factory_bot_rails'
       gem 'shoulda-matchers'
       gem 'simplecov'
@@ -40,31 +42,57 @@ def git_init
   #git commit: "-a -m 'Initial commit'"
 end
 
-def add_git_ignore
-  inject_into_file(
-    '.gitignore',
-    "/log/*.log\n
-    /tmp\n
-    /vendor/bundle"
-  )
+def remove_add_gitignore_lines
+  File.open('.gitignore_tmp', "w") do |output_file|
+
+    File.foreach('.gitignore') do |line|
+      output_file.puts line unless BLACKLISTED_LINES.include?(line) || line.include?('#')
+    end
+
+    GITIGNORE_LINES.each do |line|
+      output_file.puts line
+    end
+  end
+
+  FileUtils.mv('.gitignore_tmp', '.gitignore')
 end
 
-def remove_lines
-  file = File.open('.gitignore', 'r+')
-  byebug
-  file.delete('/log/*')
-  file.delete('/tmp/*')
-  file.delete('!/log/.keep')
-  file.delete('!/tmp/.keep')
-  file.close
+def create_spec_structure
+  #Dir.mkdir 'spec' unless File.exists?('spec')
+  Dir.mkdir 'spec/shared_examples' unless File.exists?('shared_examples')
+  Dir.mkdir 'spec/cassettes' unless File.exists?('cassettes')
+  Dir.mkdir 'spec/stubs' unless File.exists?('stubs')
 end
+
+ BLACKLISTED_LINES = [
+   "/log/*\n",
+   "/tmp/*\n",
+   "!/log/.keep\n",
+   "!/tmp/.keep\n",
+   "/tmp/pids/*\n",
+   "!/tmp/pids/\n",
+   "!/tmp/pids/.keep\n",
+   "\n"
+  ]
+
+ GITIGNORE_LINES = [
+    "/log/*.log\n",
+    "/tmp\n",
+    "/vendor/bundle\n",
+    "/db/*.sqlite3\n",
+    ".DS_Store\n",
+    "/coverage\n",
+    "vendor/bundle\n",
+    "vendor/cache\n",
+    ".env.local"
+ ]
 
 add_gems
 
 after_bundle do
-  add_git_ignore
-  remove_lines
+  #remove_add_gitignore_lines
   #db_setup
-  #setup_spec
+  setup_spec
+  create_spec_structure
   #git_init
 end
